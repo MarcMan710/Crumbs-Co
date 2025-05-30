@@ -1,0 +1,132 @@
+/* Global Styles */
+:root {
+    --primary-color: #d4a373;
+    --secondary-color: #fefae0;
+    --accent-color: #ccd5ae;
+    --text-color: #333;
+    --light-bg: #f8f9fa;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* Navigation */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    color: var(--primary-color) !important;
+}
+
+/* Hero Section */
+.hero-section {
+    background-color: var(--secondary-color);
+    padding: 4rem 0;
+}
+
+.hero-section h1 {
+    color: var(--primary-color);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+/* Product Cards */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+.card-title {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: darken(var(--primary-color), 10%);
+    border-color: darken(var(--primary-color), 10%);
+}
+
+/* Footer */
+footer {
+    background-color: #333;
+    color: white;
+}
+
+footer a {
+    color: white;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: var(--primary-color);
+}
+
+/* Product Details */
+.product-details {
+    padding: 2rem 0;
+}
+
+.product-image {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Cart */
+.cart-item {
+    border-bottom: 1px solid #eee;
+    padding: 1rem 0;
+}
+
+/* Forms */
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(212, 163, 115, 0.25);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .hero-section {
+        text-align: center;
+        padding: 2rem 0;
+    }
+    
+    .hero-section img {
+        margin-top: 2rem;
+    }
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+} 
