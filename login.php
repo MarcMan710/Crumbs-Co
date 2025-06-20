@@ -1,54 +1,68 @@
 <?php
-session_start();
-require_once 'config/database.php';
+require_once __DIR__ . '/includes/db/user_queries.php'; // Include user queries
+// templates/header.php is included later, which starts session and makes $conn available.
 
 $error = '';
 
+// Logic needs $conn, so it must be processed after templates/header.php is included,
+// OR we include config/database.php explicitly here.
+// To keep template inclusion at the end for output buffering, let's ensure $conn is available.
+// The current structure has templates/header.php including config/database.php.
+// So, if header.php is at the end of the file, $conn won't be available here.
+
+// Decision: Include header.php first for $conn and session, then process POST.
+// This means any redirects must happen before header.php is included if it outputs HTML.
+// For login, successful login redirects, so this is tricky.
+// A common pattern:
+// 1. Handle POST (which might redirect). If redirect, exit.
+// 2. Include header.
+// 3. Display page content.
+// 4. Include footer.
+
+// Let's adjust: include config/database.php directly for $conn if POST.
+// And ensure session_start() is called before accessing $_SESSION.
+// templates/header.php calls session_start().
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    require_once __DIR__ . '/config/database.php'; // For $conn
+    if (session_status() == PHP_SESSION_NONE) { // Ensure session is started
+        session_start();
+    }
+
     $email = trim($_POST['email']);
     $password = $_POST['password'];
 
     if (empty($email) || empty($password)) {
-        $error = 'Please fill in all fields';
+        $error = 'Please fill in all fields.';
     } else {
-        $stmt = $conn->prepare("SELECT id, username, password, role FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch();
+        $user = getUserByEmail($conn, $email);
 
         if ($user && password_verify($password, $user['password'])) {
+            // Regenerate session ID to prevent session fixation
+            session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
 
+            // Redirect based on role
             if ($user['role'] === 'admin') {
                 header('Location: admin/dashboard.php');
             } else {
+                // Redirect to a general welcome page or previous page if stored
                 header('Location: index.php');
             }
             exit;
         } else {
-            $error = 'Invalid email or password';
+            $error = 'Invalid email or password.';
         }
     }
 }
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Crumbs & Co.</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">Crumbs & Co.</a>
-        </div>
-    </nav>
 
+// If not a POST request or if POST handling didn't exit, include header and show form.
+require_once 'templates/header.php';
+// This ensures $conn is available for any operations below if needed, and session is started.
+// And $error message from POST handling will be displayed.
+?>
     <!-- Login Form -->
     <div class="container my-5">
         <div class="row justify-content-center">
@@ -58,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <h2 class="text-center mb-4">Login</h2>
                         
                         <?php if ($error): ?>
-                            <div class="alert alert-danger"><?php echo $error; ?></div>
+                            <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
                         <?php endif; ?>
 
                         <form method="POST" action="">
@@ -84,6 +98,4 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html> 
+<?php require_once 'templates/footer.php'; ?>

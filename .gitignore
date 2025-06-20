@@ -1,0 +1,20 @@
+# Ignore configuration files containing sensitive information
+config/config.ini
+
+# Ignore vendor directories (composer)
+vendor/
+
+# Ignore log files
+*.log
+logs/
+
+# Ignore OS-generated files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE/editor specific files
+.idea/
+.vscode/
+*.swp
+*~
+*.bak

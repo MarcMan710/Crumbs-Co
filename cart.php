@@ -1,14 +1,21 @@
 <?php
-session_start();
-require_once 'config/database.php';
+<?php
+require_once __DIR__ . '/includes/db/cart_queries.php'; // Include the new cart queries
 
-// Redirect if not logged in
+// Ensure header is required after other includes if they set session/db variables needed by header
+// However, in this setup, header.php handles session_start and db connection ($conn)
+// So, product_queries.php and cart_queries.php will rely on $conn from header.php
+
+// Redirect if not logged in - This is handled by header.php if we make it consistent
+// For now, keeping it here as header.php might not enforce login for all pages.
+// NOTE: Actually, templates/header.php *doesn't* redirect. It only starts session and includes db.
+// So, login check should remain on pages that require login.
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
+$user_id = $_SESSION['user_id']; // $user_id is set after session_start() in header.php
 $message = '';
 
 // Handle cart actions
@@ -16,113 +23,66 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'] ?? '';
     $product_id = (int)($_POST['product_id'] ?? 0);
 
-    switch ($action) {
-        case 'add':
-            $quantity = (int)($_POST['quantity'] ?? 1);
-            
-            // Check if product exists in cart
-            $stmt = $conn->prepare("SELECT * FROM cart WHERE user_id = ? AND product_id = ?");
-            $stmt->execute([$user_id, $product_id]);
-            $cart_item = $stmt->fetch();
+    if ($product_id > 0) { // Basic validation
+        switch ($action) {
+            case 'add':
+                $quantity = (int)($_POST['quantity'] ?? 1);
+                if (addProductToCart($conn, $user_id, $product_id, $quantity)) {
+                    $message = 'Product added to cart.';
+                } else {
+                    $message = 'Failed to add product to cart.';
+                }
+                break;
 
-            if ($cart_item) {
-                // Update quantity
-                $stmt = $conn->prepare("UPDATE cart SET quantity = quantity + ? WHERE user_id = ? AND product_id = ?");
-                $stmt->execute([$quantity, $user_id, $product_id]);
-            } else {
-                // Add new item
-                $stmt = $conn->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)");
-                $stmt->execute([$user_id, $product_id, $quantity]);
-            }
-            $message = 'Product added to cart';
-            break;
+            case 'update':
+                $quantity = (int)($_POST['quantity'] ?? 0);
+                // updateCartItemQuantity handles quantity <= 0 by removing
+                if (updateCartItemQuantity($conn, $user_id, $product_id, $quantity)) {
+                    $message = 'Cart updated.';
+                } else {
+                    $message = 'Failed to update cart.';
+                }
+                break;
 
-        case 'update':
-            $quantity = (int)($_POST['quantity'] ?? 0);
-            if ($quantity > 0) {
-                $stmt = $conn->prepare("UPDATE cart SET quantity = ? WHERE user_id = ? AND product_id = ?");
-                $stmt->execute([$quantity, $user_id, $product_id]);
-            } else {
-                $stmt = $conn->prepare("DELETE FROM cart WHERE user_id = ? AND product_id = ?");
-                $stmt->execute([$user_id, $product_id]);
-            }
-            $message = 'Cart updated';
-            break;
-
-        case 'remove':
-            $stmt = $conn->prepare("DELETE FROM cart WHERE user_id = ? AND product_id = ?");
-            $stmt->execute([$user_id, $product_id]);
-            $message = 'Product removed from cart';
-            break;
+            case 'remove':
+                if (removeCartItem($conn, $user_id, $product_id)) {
+                    $message = 'Product removed from cart.';
+                } else {
+                    $message = 'Failed to remove product from cart.';
+                }
+                break;
+            default:
+                $message = 'Invalid cart action.';
+        }
+    } else {
+        $message = 'Invalid product ID for cart action.';
     }
+     // Redirect to cart page to prevent form resubmission on refresh
+    header('Location: cart.php?message=' . urlencode($message));
+    exit;
 }
 
+// Get message from URL query parameter if redirected
+if (isset($_GET['message'])) {
+    $message = htmlspecialchars($_GET['message']);
+}
+
+
 // Get cart items with product details
-$stmt = $conn->prepare("
-    SELECT c.*, p.name, p.price, p.image_url 
-    FROM cart c 
-    JOIN products p ON c.product_id = p.id 
-    WHERE c.user_id = ?
-");
-$stmt->execute([$user_id]);
-$cart_items = $stmt->fetchAll();
+$cart_items = getCartItemsForUser($conn, $user_id);
 
 // Calculate total
 $total = 0;
 foreach ($cart_items as $item) {
     $total += $item['price'] * $item['quantity'];
 }
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopping Cart - Crumbs & Co.</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">Crumbs & Co.</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.php">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="products.php">Products</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="about.php">About Us</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="contact.php">Contact</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="cart.php">
-                            <i class="bi bi-cart"></i> Cart
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="profile.php">Profile</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="logout.php">Logout</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
 
+// This must be included *after* $conn is available and session is started.
+// And after any potential redirects (like login check or POST handling)
+require_once 'templates/header.php';
+// Note: $conn is made available through 'templates/header.php' which includes 'config/database.php'.
+// $_SESSION variables are available because 'templates/header.php' calls session_start().
+?>
     <!-- Cart Section -->
     <div class="container my-5">
         <h1 class="text-center mb-4">Shopping Cart</h1>
@@ -228,6 +188,4 @@ foreach ($cart_items as $item) {
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html> 
+<?php require_once 'templates/footer.php'; ?>

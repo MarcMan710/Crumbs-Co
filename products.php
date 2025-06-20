@@ -1,9 +1,10 @@
 <?php
-session_start();
-require_once 'config/database.php';
+// session_start(); // Already in header.php
+// require_once 'config/database.php'; // Already in header.php
+require_once __DIR__ . '/includes/db/product_queries.php'; // Include the new queries file
 
 // Get categories for filter
-$categories = $conn->query("SELECT * FROM categories ORDER BY name")->fetchAll();
+$categories = getAllCategories($conn);
 
 // Handle search and filter
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -29,83 +30,13 @@ if ($category_id) {
 }
 
 // Add sorting
-switch ($sort) {
-    case 'price_asc':
-        $query .= " ORDER BY p.price ASC";
-        break;
-    case 'price_desc':
-        $query .= " ORDER BY p.price DESC";
-        break;
-    case 'name_desc':
-        $query .= " ORDER BY p.name DESC";
-        break;
-    default:
-        $query .= " ORDER BY p.name ASC";
-}
+// This logic is now inside getProducts function.
+// We just pass the $sort parameter.
 
-$stmt = $conn->prepare($query);
-$stmt->execute($params);
-$products = $stmt->fetchAll();
+$products = getProducts($conn, $search, $category_id, $sort);
+
+require_once 'templates/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Products - Crumbs & Co.</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">Crumbs & Co.</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.php">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="products.php">Products</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="about.php">About Us</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="contact.php">Contact</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <?php if(isset($_SESSION['user_id'])): ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="cart.php">
-                                <i class="bi bi-cart"></i> Cart
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="profile.php">Profile</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="logout.php">Logout</a>
-                        </li>
-                    <?php else: ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="login.php">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="register.php">Register</a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
     <!-- Products Section -->
     <div class="container my-5">
         <h1 class="text-center mb-4">Our Products</h1>
@@ -197,6 +128,4 @@ $products = $stmt->fetchAll();
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html> 
+<?php require_once 'templates/footer.php'; ?>

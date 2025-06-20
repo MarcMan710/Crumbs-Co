@@ -1,8 +1,9 @@
 <?php
-session_start();
-require_once 'config/database.php';
+<?php
+require_once __DIR__ . '/includes/db/order_queries.php'; // Include order queries
+// Note: templates/header.php includes config/database.php (for $conn) and starts session.
 
-// Redirect if not logged in
+// Redirect if not logged in - This must happen before any HTML output from header.php
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
@@ -12,85 +13,36 @@ $user_id = $_SESSION['user_id'];
 $order_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if (!$order_id) {
+    // Perhaps redirect to a user's order history page if it exists, or index.
     header('Location: index.php');
     exit;
 }
 
-// Get order details
-$stmt = $conn->prepare("
-    SELECT o.*, u.username, u.email 
-    FROM orders o 
-    JOIN users u ON o.user_id = u.id 
-    WHERE o.id = ? AND o.user_id = ?
-");
-$stmt->execute([$order_id, $user_id]);
-$order = $stmt->fetch();
+// Get order details using the new function
+// $conn is available because header.php (which will be required later) includes database.php
+// However, we need $conn *before* header.php if header.php is at the end.
+// Let's ensure config/database.php (which defines $conn) is included before it's used.
+// The current structure has templates/header.php including config/database.php.
+// So, calls needing $conn must be after templates/header.php, or we include config/database.php manually here.
+
+// For consistency and clarity, let's include header first, then perform operations.
+// The login check and $order_id check are safe before header.
+require_once 'templates/header.php'; // This makes $conn available.
+
+$order = getOrderDetails($conn, $order_id, $user_id);
 
 if (!$order) {
-    header('Location: index.php');
+    // Order not found or doesn't belong to the user
+    // You might want to show an error message on the page instead of just redirecting
+    // For now, keeping the redirect.
+    header('Location: index.php'); // Or a specific "my orders" page
     exit;
 }
 
-// Get order items
-$stmt = $conn->prepare("
-    SELECT oi.*, p.name, p.image_url 
-    FROM order_items oi 
-    JOIN products p ON oi.product_id = p.id 
-    WHERE oi.order_id = ?
-");
-$stmt->execute([$order_id]);
-$order_items = $stmt->fetchAll();
+// Get order items using the new function
+$order_items = getOrderItems($conn, $order_id);
+// No need to require 'templates/header.php' again, it's already above.
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmation - Crumbs & Co.</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">Crumbs & Co.</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.php">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="products.php">Products</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="about.php">About Us</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="contact.php">Contact</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link" href="cart.php">
-                            <i class="bi bi-cart"></i> Cart
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="profile.php">Profile</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="logout.php">Logout</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
     <!-- Order Confirmation Section -->
     <div class="container my-5">
         <div class="row justify-content-center">
@@ -199,6 +151,4 @@ $order_items = $stmt->fetchAll();
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html> 
+<?php require_once 'templates/footer.php'; ?>
